@@ -1,4 +1,4 @@
-name: 签到
+name: 更新书库
 
 on:
   push:
