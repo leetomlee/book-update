@@ -1,146 +1,159 @@
-import hashlib
-
-import base64
-import re
-import requests
-import rsa
+# -*- coding: utf-8 -*-
+import datetime
+import random
 import time
+from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
+import pymongo
+# client = pymongo.MongoClient(host='192.168.3.9')
+import requests
+from bson import ObjectId
+from lxml import etree
 
-s = requests.Session()
+#ex = ThreadPoolExecutor(3)
+# ex = ProcessPoolExecutor()
+# myclient1 = pymongo.MongoClient('mongodb://lx:Lx123456@localhost:27017/')
+myclient1 = pymongo.MongoClient('mongodb://lx:Lx123456@134.175.83.19:27017/', connect=False)
+mydbDB = myclient1["book"]
+bookDB = mydbDB["books"]
+chapterDB = mydbDB["chapters"]
+user_agent_list = [
+    "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/22.0.1207.1 Safari/537.1" \
+    "Mozilla/5.0 (X11; CrOS i686 2268.111.0) AppleWebKit/536.11 (KHTML, like Gecko) Chrome/20.0.1132.57 Safari/536.11", \
+    "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.6 (KHTML, like Gecko) Chrome/20.0.1092.0 Safari/536.6", \
+    "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/536.6 (KHTML, like Gecko) Chrome/20.0.1090.0 Safari/536.6", \
+    "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/19.77.34.5 Safari/537.1", \
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/536.5 (KHTML, like Gecko) Chrome/19.0.1084.9 Safari/536.5", \
+    "Mozilla/5.0 (Windows NT 6.0) AppleWebKit/536.5 (KHTML, like Gecko) Chrome/19.0.1084.36 Safari/536.5", \
+    "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1063.0 Safari/536.3", \
+    "Mozilla/5.0 (Windows NT 5.1) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1063.0 Safari/536.3", \
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_0) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1063.0 Safari/536.3", \
+    "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1062.0 Safari/536.3", \
+    "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1062.0 Safari/536.3", \
+    "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1061.1 Safari/536.3", \
+    "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1061.1 Safari/536.3", \
+    "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1061.1 Safari/536.3", \
+    "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1061.0 Safari/536.3", \
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/535.24 (KHTML, like Gecko) Chrome/19.0.1055.1 Safari/535.24", \
+    "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/535.24 (KHTML, like Gecko) Chrome/19.0.1055.1 Safari/535.24"
+]
 
-username = "17717802625"
-password = "ZMN8VG8NiZU4NY5"
+import logging  # 引入logging模块
+
+logging.basicConfig(level=logging.INFO)  # 设置日志级别
 
 
-# if(username == "" or password == ""):
-#     username = input("账号：")
-#     password = input("密码：")
+def getHTML(url):
+    retry_count = 5
+    while retry_count > 0:
+        try:
+            get = requests.get(url,
+                               headers={"User-Agent": random.choice(user_agent_list)}, timeout=12)
+            get.encoding = "utf-8"
+            status = get.status_code
+            if status != 200:
+                raise Exception("request resource failed")
+            html = etree.HTML(get.text)
+            return html
+        except Exception as e:
+            logging.info("retry " + str(retry_count))
+            retry_count -= 1
+    return None
 
-def main():
-    login(username, password)
-    rand = str(round(time.time() * 1000))
-    surl = f'https://api.cloud.189.cn/mkt/userSign.action?rand={rand}&clientType=TELEANDROID&version=8.6.3&model=SM-G930K'
-    url = f'https://m.cloud.189.cn/v2/drawPrizeMarketDetails.action?taskId=TASK_SIGNIN&activityId=ACT_SIGNIN'
-    url2 = f'https://m.cloud.189.cn/v2/drawPrizeMarketDetails.action?taskId=TASK_SIGNIN_PHOTOS&activityId=ACT_SIGNIN'
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 5.1.1; SM-G930K Build/NRD90M; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/74.0.3729.136 Mobile Safari/537.36 Ecloud/8.6.3 Android/22 clientId/355325117317828 clientModel/SM-G930K imsi/460071114317824 clientChannelId/qq proVersion/1.0.6',
-        "Referer": "https://m.cloud.189.cn/zhuanti/2016/sign/index.jsp?albumBackupOpened=1",
-        "Host": "m.cloud.189.cn",
-        "Accept-Encoding": "gzip, deflate",
-    }
-    response = s.get(surl, headers=headers)
-    netdiskBonus = response.json()['netdiskBonus']
-    if (response.json()['isSign'] == "false"):
-        print(f"未签到，签到获得{netdiskBonus}M空间")
+
+def get_books_from_db():
+    find = bookDB.find({"hot": {"$gt": 0}, "status": {"$ne": "完结"}}, {"_id": 1, "link": 1,"book_name":1}).sort("hot",-1)
+    cnt = 1
+    jobs=[]
+    ids=[]
+    links=[]
+    books=[]
+    for f in find:
+        try:
+            link = str(f["link"])
+
+            if link.__contains__("paoshuzw"):
+                link=link.replace("paoshuzw.com","xbiquge.la",1)
+            ids.append(str(f["_id"]))
+            links.append(link)
+            books.append(str(f["book_name"]))
+            #updateBook(str(f["_id"]),link)
+            cnt += 1
+            
+        except Exception as e:
+            logging.error(e)
+            continue
+            
+    #wait(jobs, return_when=ALL_COMPLETED)
+    for i in range(len(ids)):
+        updateBook(ids[i],links[i])
+        logging.info("update "+str(books[i]))
+        
+    logging.info("update %s books" % str(cnt))
+
+
+def updateBook(id, url):
+    html = getHTML(url)
+    if html is None:
+        return "empty html"
+
+    ids = []
+    chps = chapterDB.find({"book_id": id}, {"chapter_name": 1})
+    for chp in chps:
+        ids.append(chp["chapter_name"])
+    chapters = []
+    if str(url).__contains__("dwxdwx"):
+        for dd in html.xpath('//*[@id="list"]/dl/dt[2]/following-sibling::*'):
+            if len(dd.xpath('a/@href')) > 0:
+                s = dd.xpath('a/@href')[0]
+                name = dd.xpath('a/text()')[0]
+                if ids.__contains__(name):
+                    continue
+                chapter = {
+                    'book_id': id,
+                    'link': 'https://www.dwxdwx.net' + s,
+                    'chapter_name': name}
+                chapters.append(chapter)
+
     else:
-        print(f"已经签到过了，签到获得{netdiskBonus}M空间")
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 5.1.1; SM-G930K Build/NRD90M; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/74.0.3729.136 Mobile Safari/537.36 Ecloud/8.6.3 Android/22 clientId/355325117317828 clientModel/SM-G930K imsi/460071114317824 clientChannelId/qq proVersion/1.0.6',
-        "Referer": "https://m.cloud.189.cn/zhuanti/2016/sign/index.jsp?albumBackupOpened=1",
-        "Host": "m.cloud.189.cn",
-        "Accept-Encoding": "gzip, deflate",
-    }
-    response = s.get(url, headers=headers)
-    if ("errorCode" in response.text):
-        print(response.text)
-    else:
-        description = response.json()['description']
-        print(f"抽奖获得{description}")
-    response = s.get(url2, headers=headers)
-    if ("errorCode" in response.text):
-        print(response.text)
-    else:
-        description = response.json()['description']
-        print(f"抽奖获得{description}")
+        for dd in html.xpath("//*[@id='list']/dl/dd"):
+            if len(dd.xpath('a/@href')) > 0:
+                s = dd.xpath('a/@href')[0]
+                name = dd.xpath('a/text()')[0]
+                if ids.__contains__(name):
+                    continue
+                chapter = {
+                    'book_id': id,
+                    'link': 'http://www.xbiquge.la/' + s,
+                    'chapter_name': name}
+                chapters.append(chapter)
+    try:
+        if len(chapters) != 0:
+            many = chapterDB.insert_many(chapters)
+            logging.info("new add  " + str(len(many.inserted_ids)))
+            logging.info("insert ok")
+
+            update_time = html.xpath('//*[@id="info"]/p[3]/text()')[0]
+            latest_chapter_name = html.xpath('//*[@id="info"]/p[4]/a/text()')[0]
+
+            myquery = {"_id": ObjectId(id)}
+            newvalues = {
+                "$set": {"u_time": update_time, "last_chapter": latest_chapter_name}}
+
+            bookDB.update_one(myquery, newvalues)
+            logging.info("book info update " + str(id))
+    except Exception as e:
+        pass
 
 
-BI_RM = list("0123456789abcdefghijklmnopqrstuvwxyz")
 
 
-def int2char(a):
-    return BI_RM[a]
 
 
-b64map = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-
-
-def b64tohex(a):
-    d = ""
-    e = 0
-    c = 0
-    for i in range(len(a)):
-        if list(a)[i] != "=":
-            v = b64map.index(list(a)[i])
-            if 0 == e:
-                e = 1
-                d += int2char(v >> 2)
-                c = 3 & v
-            elif 1 == e:
-                e = 2
-                d += int2char(c << 2 | v >> 4)
-                c = 15 & v
-            elif 2 == e:
-                e = 3
-                d += int2char(c)
-                d += int2char(v >> 2)
-                c = 3 & v
-            else:
-                e = 0
-                d += int2char(c << 2 | v >> 4)
-                d += int2char(15 & v)
-    if e == 1:
-        d += int2char(c << 2)
-    return d
-
-
-def rsa_encode(j_rsakey, string):
-    rsa_key = f"-----BEGIN PUBLIC KEY-----\n{j_rsakey}\n-----END PUBLIC KEY-----"
-    pubkey = rsa.PublicKey.load_pkcs1_openssl_pem(rsa_key.encode())
-    result = b64tohex((base64.b64encode(rsa.encrypt(f'{string}'.encode(), pubkey))).decode())
-    return result
-
-
-def calculate_md5_sign(params):
-    return hashlib.md5('&'.join(sorted(params.split('&'))).encode('utf-8')).hexdigest()
-
-
-def login(username, password):
-    url = "https://cloud.189.cn/udb/udb_login.jsp?pageId=1&redirectURL=/main.action"
-    r = s.get(url)
-    captchaToken = re.findall(r"captchaToken' value='(.+?)'", r.text)[0]
-    lt = re.findall(r'lt = "(.+?)"', r.text)[0]
-    returnUrl = re.findall(r"returnUrl = '(.+?)'", r.text)[0]
-    paramId = re.findall(r'paramId = "(.+?)"', r.text)[0]
-    j_rsakey = re.findall(r'j_rsaKey" value="(\S+)"', r.text, re.M)[0]
-    s.headers.update({"lt": lt})
-
-    username = rsa_encode(j_rsakey, username)
-    password = rsa_encode(j_rsakey, password)
-    url = "https://open.e.189.cn/api/logbox/oauth2/loginSubmit.do"
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:74.0) Gecko/20100101 Firefox/76.0',
-        'Referer': 'https://open.e.189.cn/',
-    }
-    data = {
-        "appKey": "cloud",
-        "accountType": '01',
-        "userName": f"{{RSA}}{username}",
-        "password": f"{{RSA}}{password}",
-        "validateCode": "",
-        "captchaToken": captchaToken,
-        "returnUrl": returnUrl,
-        "mailSuffix": "@189.cn",
-        "paramId": paramId
-    }
-    r = s.post(url, data=data, headers=headers, timeout=5)
-    if (r.json()['result'] == 0):
-        print(r.json()['msg'])
-    else:
-        print(r.json()['msg'])
-    redirect_url = r.json()['toUrl']
-    r = s.get(redirect_url)
-    return s
-
-
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    stime = datetime.datetime.now()
+    logging.info("all update  " + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+    get_books_from_db()
+    logging.info("end update  " + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+    etime = datetime.datetime.now()
+    logging.info("used_time  " + str((etime - stime).seconds))
+    myclient1.close()
