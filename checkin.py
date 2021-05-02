@@ -86,7 +86,7 @@ def get_books_from_db():
     #wait(jobs, return_when=ALL_COMPLETED)
     for i in range(len(ids)):
         updateBook(ids[i],links[i])
-        # time.sleep(5)
+        # time.sleep(2)
         logging.info("update "+str(books[i]))
         
     logging.info("update %s books" % str(cnt))
