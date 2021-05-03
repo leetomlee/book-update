@@ -70,6 +70,8 @@ def get_books_from_db():
 
             if link.__contains__("paoshuzw"):
                 link=link.replace("paoshuzw.com","xbiquge.la",1)
+            if link.__contains__("dwxdwx"):
+                link=link.replace("dwxdwx.net","dwxdwx.com",1)
             ids.append(str(f["_id"]))
             links.append(link)
             books.append(str(f["book_name"]))
