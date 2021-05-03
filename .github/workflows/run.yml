@@ -26,8 +26,8 @@ jobs:
         pip install -r requirements.txt
         mongo_url='${{ secrets.MONGO_URL }}'
 
-        python3 checkin.py ${mongo_url} <<EOF
-
+        python3 checkin.py  <<EOF
+        ${mongo_url}
         EOF
 
 
