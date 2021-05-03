@@ -1,4 +1,3 @@
-rsa
 requests
 pymongo
 lxml

@@ -24,8 +24,10 @@ jobs:
     - name: 开始更新书库
       run: |
         pip install -r requirements.txt
-        
+        mongo_url='${{ secrets.MONGO_URL }}'
 
-        python3 checkin.py
+        python3 checkin.py ${mongo_url} <<EOF
+
+        EOF
 
 

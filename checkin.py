@@ -12,10 +12,8 @@ from lxml import etree
 #ex = ThreadPoolExecutor(3)
 # ex = ProcessPoolExecutor()
 # myclient1 = pymongo.MongoClient('mongodb://lx:Lx123456@localhost:27017/')
-myclient1 = pymongo.MongoClient('mongodb://lx:Lx123456@134.175.83.19:27017/', connect=False)
-mydbDB = myclient1["book"]
-bookDB = mydbDB["books"]
-chapterDB = mydbDB["chapters"]
+# 'mongodb://lx:Lx123456@134.175.83.19:27017/'
+mongo_url = ""
 user_agent_list = [
     "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/22.0.1207.1 Safari/537.1" \
     "Mozilla/5.0 (X11; CrOS i686 2268.111.0) AppleWebKit/536.11 (KHTML, like Gecko) Chrome/20.0.1132.57 Safari/536.11", \
@@ -42,6 +40,10 @@ import logging  # 引入logging模块
 logging.basicConfig(level=logging.INFO)  # 设置日志级别
 
 
+
+
+if(mongo_url == ""):
+    mongo_url = input("链接地址：")
 def getHTML(url):
     retry_count = 5
     while retry_count > 0:
@@ -151,6 +153,10 @@ def updateBook(id, url):
 
 
 if __name__ == '__main__':
+    myclient1 = pymongo.MongoClient(mongo_url, connect=False)
+    mydbDB = myclient1["book"]
+    bookDB = mydbDB["books"]
+    chapterDB = mydbDB["chapters"]  
     stime = datetime.datetime.now()
     logging.info("all update  " + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
     get_books_from_db()
