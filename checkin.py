@@ -171,7 +171,7 @@ class Getmyip:
 if __name__ == '__main__':
     getmyip = Getmyip()
     localip = getmyip.getip()
-    print ("服务器ip:"+str(localip))
+    logging.info("服务器ip:"+str(localip))
     myclient1 = pymongo.MongoClient(mongo_url, connect=False)
     mydbDB = myclient1["book"]
     bookDB = mydbDB["books"]
