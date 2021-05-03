@@ -145,11 +145,33 @@ def updateBook(id, url):
         pass
 
 
+import re,urllib.request as urllib2
+class Getmyip:
+    def getip(self):
+        try:
+            myip = self.visit("http://www.ip138.com/ip2city.asp")
+        except:
+            try:
+                myip = self.visit("http://www.bliao.com/ip.phtml")
+            except:
+                try:
+                    myip = self.visit("http://www.whereismyip.com/")
+                except:
+                    myip = "So sorry!!!"
+        return myip
+    def visit(self,url):
+        opener = urllib2.urlopen(url)
+        if url == opener.geturl():
+            str = opener.read()
+        return re.search('\d+\.\d+\.\d+\.\d+',str).group(0)
 
 
 
 
 if __name__ == '__main__':
+    getmyip = Getmyip()
+    localip = getmyip.getip()
+    print ("服务器ip:"+str(localip))
     myclient1 = pymongo.MongoClient(mongo_url, connect=False)
     mydbDB = myclient1["book"]
     bookDB = mydbDB["books"]
