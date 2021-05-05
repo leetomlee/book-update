@@ -54,6 +54,8 @@ def getHTML(url):
         except Exception as e:
             logging.info("retry " + str(retry_count))
             retry_count -= 1
+            if(retry_count==0):
+                logging.info(url)
     return None
 
 
