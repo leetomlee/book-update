@@ -60,7 +60,7 @@ def getHTML(url):
 
 
 def get_books_from_db():
-    find = bookDB.find({"hot": {"$gt": 0}, "status": {"$ne": "完结"}}, {"_id": 1, "link": 1,"book_name":1}).sort("hot",-1)
+    find = bookDB.find({"hot": {"$gt": 0}, "status": {"$ne": "完结"}}, {"_id": 1, "link": 1,"book_name":1}).sort("hot",1)
     cnt = 1
     jobs=[]
     ids=[]
