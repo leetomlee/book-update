@@ -2,12 +2,13 @@
 import datetime
 import random
 import time
-from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
+
 import pymongo
 # client = pymongo.MongoClient(host='192.168.3.9')
 import requests
 from bson import ObjectId
 from lxml import etree
+
 mongo_url = ""
 user_agent_list = [
     "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/22.0.1207.1 Safari/537.1" \
@@ -32,19 +33,17 @@ user_agent_list = [
 
 import logging  # 引入logging模块
 
-logging.basicConfig(level=logging.INFO)  # 设置日志级别
-
-
-
-
-if(mongo_url == ""):
+logging.basicConfig(level=logging.INFO)  # 设置日志级
+if (mongo_url == ""):
     mongo_url = input("链接地址：")
+
+
 def getHTML(url):
     retry_count = 5
     while retry_count > 0:
         try:
             get = requests.get(url,
-                               headers={"User-Agent": random.choice(user_agent_list)}, timeout=12)
+                               headers={"User-Agent": random.choice(user_agent_list)})
             get.encoding = "utf-8"
             status = get.status_code
             if status != 200:
@@ -52,44 +51,42 @@ def getHTML(url):
             html = etree.HTML(get.text)
             return html
         except Exception as e:
-            logging.info("retry " + str(retry_count))
+            logging.info(e)
             retry_count -= 1
-            if(retry_count==0):
+            if (retry_count == 0):
                 logging.info(url)
     return None
 
 
 def get_books_from_db():
-    find = bookDB.find({"hot": {"$gt": 0}, "status": {"$ne": "完结"}}, {"_id": 1, "link": 1,"book_name":1}).sort("hot",1)
+    find = bookDB.find({"hot": {"$gt": 0}, "status": {"$ne": "完结"}}, {"_id": 1, "link": 1, "book_name": 1}).sort("hot",
+                                                                                                                 1)
     cnt = 1
-    jobs=[]
-    ids=[]
-    links=[]
-    books=[]
+    ids = []
+    links = []
+    books = []
     for f in find:
         try:
             link = str(f["link"])
 
             if link.__contains__("paoshuzw"):
-                link=link.replace("paoshuzw.com","xbiquge.la",1)
-            if link.__contains__("dwxdwx"):
-                link=link.replace("dwxdwx.net","dwxdwx.com",1)
+                link = link.replace("http://www.paoshuzw.com", "https://www.xbiquge.la", 1)
             ids.append(str(f["_id"]))
             links.append(link)
             books.append(str(f["book_name"]))
-            #updateBook(str(f["_id"]),link)
+            # updateBook(str(f["_id"]),link)
             cnt += 1
-            
+
         except Exception as e:
             logging.error(e)
             continue
-            
-    #wait(jobs, return_when=ALL_COMPLETED)
+
+    # wait(jobs, return_when=ALL_COMPLETED)
     for i in range(len(ids)):
-        updateBook(ids[i],links[i])
+        updateBook(ids[i], links[i])
         # time.sleep(2)
-        logging.info("update "+str(books[i]))
-        
+        logging.info("update " + str(books[i]))
+
     logging.info("update %s books" % str(cnt))
 
 
@@ -103,18 +100,27 @@ def updateBook(id, url):
     for chp in chps:
         ids.append(chp["chapter_name"])
     chapters = []
-    if str(url).__contains__("dwxdwx"):
-        for dd in html.xpath('//*[@id="list"]/dl/dt[2]/following-sibling::*'):
-            if len(dd.xpath('a/@href')) > 0:
-                s = dd.xpath('a/@href')[0]
-                name = dd.xpath('a/text()')[0]
-                if ids.__contains__(name):
-                    continue
-                chapter = {
-                    'book_id': id,
-                    'link': 'https://www.dwxdwx.net' + s,
-                    'chapter_name': name}
-                chapters.append(chapter)
+    if str(url).__contains__("nunusf"):
+        page_nums = html.xpath('//*[@id="pageNum"]/div/span[2]/text()')[0]
+        bookid = html.xpath('//*[@id="bookDetails"]/@data-bookid')[0]
+        i = len(ids)
+        if i > 0:
+            i = int(i / 10) - 1
+        i = max(0, i)
+        for page in range(int(i), int(page_nums)):
+            uks = "https://www.nunusf.com/e/extend/bookpage/pages.php?id=" + bookid + "&pageNum=" + str(
+                int(page)) + "&dz=asc"
+            json = requests.get(uks).json()
+            if 'list' in json:
+                for item in json['list']:
+                    name = item['title']
+                    if ids.__contains__(name):
+                        continue
+                    chapter = {
+                        'book_id': id,
+                        'link': item['pic'],
+                        'chapter_name': name}
+                    chapters.append(chapter)
 
     else:
         for dd in html.xpath("//*[@id='list']/dl/dd"):
@@ -125,7 +131,7 @@ def updateBook(id, url):
                     continue
                 chapter = {
                     'book_id': id,
-                    'link': 'http://www.xbiquge.la/' + s,
+                    'link': 'https://www.xbiquge.la' + s,
                     'chapter_name': name}
                 chapters.append(chapter)
     try:
@@ -133,9 +139,14 @@ def updateBook(id, url):
             many = chapterDB.insert_many(chapters)
             logging.info("new add  " + str(len(many.inserted_ids)))
             logging.info("insert ok")
+            if str(url).__contains__("nunusf"):
+                update_time = html.xpath("//meta[@property='og:novel:update_time']/@content")[0]
 
-            update_time = html.xpath('//*[@id="info"]/p[3]/text()')[0]
-            latest_chapter_name = html.xpath('//*[@id="info"]/p[4]/a/text()')[0]
+                latest_chapter_name = html.xpath(
+                    "//meta[@property='og:novel:latest_chapter_name']/@content")[0]
+            else:
+                update_time = html.xpath('//*[@id="info"]/p[3]/text()')[0]
+                latest_chapter_name = html.xpath('//*[@id="info"]/p[4]/a/text()')[0]
 
             myquery = {"_id": ObjectId(id)}
             newvalues = {
@@ -147,37 +158,11 @@ def updateBook(id, url):
         pass
 
 
-import re,urllib.request as urllib2
-class Getmyip:
-    def getip(self):
-        try:
-            myip = self.visit("http://www.ip138.com/ip2city.asp")
-        except:
-            try:
-                myip = self.visit("http://www.bliao.com/ip.phtml")
-            except:
-                try:
-                    myip = self.visit("http://www.whereismyip.com/")
-                except:
-                    myip = "So sorry!!!"
-        return myip
-    def visit(self,url):
-        opener = urllib2.urlopen(url)
-        if url == opener.geturl():
-            str = opener.read()
-        return re.search('\d+\.\d+\.\d+\.\d+',str).group(0)
-
-
-
-
 if __name__ == '__main__':
-    getmyip = Getmyip()
-    localip = getmyip.getip()
-    logging.info("服务器ip:"+str(localip))
     myclient1 = pymongo.MongoClient(mongo_url, connect=False)
     mydbDB = myclient1["book"]
     bookDB = mydbDB["books"]
-    chapterDB = mydbDB["chapters"]  
+    chapterDB = mydbDB["chapters"]
     stime = datetime.datetime.now()
     logging.info("all update  " + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
     get_books_from_db()
